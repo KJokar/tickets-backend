@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-TicketingDb}
+      POSTGRES_USER: ${POSTGRES_USER:-ticketing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - ticketing_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: TicketingApi/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Database__ApplyMigrationsOnStartup: "true"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-TicketingDb};Username=${POSTGRES_USER:-ticketing};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      JWT__Secret: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT__ValidIssuer: TicketingApi
+      JWT__ValidAudience: TicketingClient
+      JWT__ExpirationMinutes: "43200"
+      JWT__RefreshTokenExpirationDays: "90"
+      Media__SigningKey: ${MEDIA_SIGNING_KEY:?Set MEDIA_SIGNING_KEY in .env}
+      SmsIr__ApiKey: ${SMS_IR_API_KEY:-}
+      SmsIr__Username: ${SMS_IR_USERNAME:-}
+      SmsIr__LineNumber: ${SMS_IR_LINE_NUMBER:-}
+      SmsIr__BaseUrl: ${SMS_IR_BASE_URL:-}
+      Cors__AllowedOrigins__0: http://localhost:3000
+    ports:
+      - "${API_PORT:-5080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  ticketing_postgres_data:

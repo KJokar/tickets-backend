@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Database/Database.csproj" />
+  <Project Path="Infrastructure/Infrastructure.csproj" />
+  <Project Path="Repository/Repository.csproj" />
+  <Project Path="Service/Service.csproj" />
+  <Project Path="TicketingApi/TicketingApi.csproj" />
+  <Project Path="TicketingApi.Tests/TicketingApi.Tests.csproj" />
+  <Project Path="ViewModels/ViewModels.csproj" />
+</Solution>

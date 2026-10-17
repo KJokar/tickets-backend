@@ -1,0 +1,108 @@
+@host = http://localhost:5080
+
+# Run requests in order. Named response references use VS Code REST Client.
+# Register each email once, then log in on subsequent runs.
+
+### Get enum options for the registration role dropdown
+GET {{host}}/api/v1/auth/roles
+
+### Register a client
+POST {{host}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Example Client",
+  "email": "client@example.com",
+  "password": "1234",
+  "confirmPassword": "1234",
+  "role": "Client"
+}
+
+### Log in as the client
+# @name loginClient
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{"email":"client@example.com","password":"1234"}
+
+### Refresh once; save the NEW refresh token from every response
+# @name refreshClient
+POST {{host}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{"refreshToken":"{{loginClient.response.body.$.data.refreshToken}}"}
+
+### Submit a request: title and description only
+# @name createTicket
+POST {{host}}/Tickets/v1/Tickets/Create
+Authorization: Bearer {{loginClient.response.body.$.data.token}}
+Content-Type: application/json
+
+{"title":"Cannot access my account","description":"I need help signing into my account."}
+
+### Client's own requests
+GET {{host}}/Tickets/v1/Tickets/List
+Authorization: Bearer {{loginClient.response.body.$.data.token}}
+
+### Register an agent
+POST {{host}}/api/v1/auth/register
+Content-Type: application/json
+
+{"fullName":"Example Agent","email":"agent@example.com","password":"1234","confirmPassword":"1234","role":"Agent"}
+
+### Log in as the agent
+# @name loginAgent
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{"email":"agent@example.com","password":"1234"}
+
+### Shared open queue
+GET {{host}}/Tickets/v1/Tickets/Unassigned
+Authorization: Bearer {{loginAgent.response.body.$.data.token}}
+
+### Accept and set priority; another agent's attempt returns 409
+POST {{host}}/Tickets/v1/Tickets/{{createTicket.response.body.$.data.id}}/Accept
+Authorization: Bearer {{loginAgent.response.body.$.data.token}}
+Content-Type: application/json
+
+{"priority":"High"}
+
+### Client reads the private conversation after acceptance
+GET {{host}}/Tickets/v1/Tickets/{{createTicket.response.body.$.data.id}}/Conversation
+Authorization: Bearer {{loginClient.response.body.$.data.token}}
+
+### Send a client chat message (also available through SignalR SendMessage)
+# Reusing this clientMessageId with the same body returns the existing message.
+POST {{host}}/Tickets/v1/Tickets/{{createTicket.response.body.$.data.id}}/Messages
+Authorization: Bearer {{loginClient.response.body.$.data.token}}
+Content-Type: application/json
+
+{"body":"Hello, can you help me sign in?","clientMessageId":"d5a95e90-73bb-4c51-9f25-f28ede8311a4"}
+
+### Assigned agent sends a chat message
+POST {{host}}/Tickets/v1/Tickets/{{createTicket.response.body.$.data.id}}/Messages
+Authorization: Bearer {{loginAgent.response.body.$.data.token}}
+Content-Type: application/json
+
+{"body":"Hello, I am checking your request.","clientMessageId":"ad1cb263-d1a6-4a8c-82d3-e41176aac2df"}
+
+### Assigned agent changes priority
+PATCH {{host}}/Tickets/v1/Tickets/{{createTicket.response.body.$.data.id}}/Priority
+Authorization: Bearer {{loginAgent.response.body.$.data.token}}
+Content-Type: application/json
+
+{"priority":"Medium"}
+
+### Agent's accepted conversations
+GET {{host}}/Tickets/v1/Tickets/List?mineOnly=true
+Authorization: Bearer {{loginAgent.response.body.$.data.token}}
+
+### Close the chat; history remains readable
+PATCH {{host}}/Tickets/v1/Tickets/{{createTicket.response.body.$.data.id}}/Status
+Authorization: Bearer {{loginAgent.response.body.$.data.token}}
+Content-Type: application/json
+
+{"status":"Closed"}
+
+# To log out, discard both tokens on the client.
