@@ -1,21 +1,23 @@
 # Ticketing
 
-A small ticketing subsystem with Persian, responsive client and support
-dashboards, implemented with ASP.NET Core, Entity Framework Core, JWT
-authentication, and PostgreSQL. Its project layout follows the layered style
+The backend API for the ticketing system, implemented with ASP.NET Core,
+Entity Framework Core, JWT authentication, and PostgreSQL. Its project layout follows the layered style
 of the `pair` project. Requests enter a shared support queue; the first agent
 to accept a request owns its private conversation with the client.
 
 ## Project layout
 
-- `TicketingApi`: HTTP endpoints, authentication, Swagger, startup, and the
-  dashboard's HTML/CSS/JavaScript in `wwwroot`.
+- `TicketingApi`: HTTP endpoints, authentication, Swagger, SignalR, and startup.
 - `Service`: business rules, authentication, and ticket lifecycle.
 - `Repository`: database queries and access boundaries.
 - `Database`: EF Core entities, configurations, enums, and migrations.
 - `ViewModels`: request and response contracts.
 - `Infrastructure`: JWT and password hashing.
 - `TicketingApi.Tests`: workflow, security-helper, and model tests.
+
+The Persian client and support dashboards live in the separate Next.js project
+[`../ticketing-frontend`](../ticketing-frontend/README.md). Run that project
+separately; this API does not serve frontend pages or static assets.
 
 Controllers, services, and repositories follow the conventions of `pair`:
 
@@ -41,8 +43,9 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Open the application at <http://localhost:5080/>, Swagger at
-<http://localhost:5080/swagger>.
+The API runs at <http://localhost:5080>; open Swagger at
+<http://localhost:5080/swagger> in Development. Run the separate frontend at
+<http://localhost:3000> for the application UI.
 
 Register test accounts with either the `Client` or `Agent` role. Role selection
 is intentionally available during public registration in this test project.
@@ -98,10 +101,8 @@ applying this migration; it does not invent phone numbers for email accounts.
 
 Logout is handled by deleting both tokens on the client. There is no logout
 endpoint; issued JWTs retain their claims and remain valid until expiry.
-The dashboard keeps credentials in `sessionStorage`, renews them automatically
-before JWT expiry or after a 401 response, and clears them on logout or rejected
-refresh. Parallel API calls share one refresh request. Older logins without a
-refresh token need to sign in again to obtain one.
+Frontend session storage and automatic token renewal are documented in
+[`../ticketing-frontend/README.md`](../ticketing-frontend/README.md).
 
 ## Requests, acceptance, and private chat
 
@@ -200,9 +201,8 @@ match subjects and descriptions. Filters and pagination apply on the server.
 
 ### Live transport
 
-SignalR connects at `/hubs/tickets` using JWT authentication. The browser client
-is vendored locally at `wwwroot/lib/signalr` (Microsoft SignalR 10.0.11), including
-its license and notices; there is no CDN dependency. `access_token` query tokens
+SignalR connects at `/hubs/tickets` using JWT authentication. The separate Next.js
+frontend uses the `@microsoft/signalr` npm package. `access_token` query tokens
 are accepted only on the hub path. Connections close at JWT expiry and reconnect
 using the current token. Reconnect reloads persisted history.
 
@@ -231,8 +231,7 @@ an interrupted acknowledgement. Offline users retrieve history when reconnecting
 
 `ExclusiveSupportChat` renames the old message table and preserves its rows.
 Existing assigned requests receive an acceptance time; unassigned requests have
-priority cleared. The department column is removed. Older saved dashboard logins
-are automatically refreshed to obtain the new permission claims when possible.
+priority cleared. The department column is removed.
 
 Registration body:
 
@@ -276,18 +275,8 @@ authentication endpoints using Node.js (no extra packages required):
 node .\scripts\check-swagger.mjs
 ```
 
-Browser verification uses installed Microsoft Edge and Node.js without extra
-packages. Run it against a separate development API/database, since it creates
-test accounts and tickets:
-
-```powershell
-node .\scripts\check-dashboard.mjs http://localhost:5081
-```
-
-It checks three simultaneous browser sessions: live queue delivery, exclusive
-acceptance, private SignalR chat, denied outsider access, agent priority/status,
-offline history, closed conversations, token renewal, mobile layout, and an
-actual PostgreSQL acceptance race. It saves screenshots to the temporary directory.
+Run frontend validation from `../ticketing-frontend`; see that project's README
+for its test, lint, and build commands.
 
 ## Ticket lifecycle
 
@@ -381,8 +370,8 @@ returns the same agent's accepted requests in that date range, with `id`,
 rows and sort by creation date and ID descending. Date validation and access
 scope are shared with the aggregate report.
 
-The report page is `/support/reports`. Its Jalali calendar displays Persian
-months, years and digits; API date values are converted internally. Reports
+The separate frontend's report page is `/support/reports`. Its Jalali calendar
+displays Persian months, years and digits; API date values are converted internally. Reports
 include bar/donut charts, totals, and a separate paginated list of customer names
 and request titles. Titles link to the corresponding conversations. There is no
 chart-data table or scope selector.
@@ -393,9 +382,8 @@ are together above the report. The PDF is
 rendered locally with the current authorized report data; no report data is sent
 to an external service.
 
-The frontend uses `pdf-lib`. Run `npm run sync:report-assets` from the frontend
-when changing `report-pdf.ts` or `persian-date.ts` to refresh shared renderer,
-calendar and licensed PDF library assets used by the API-hosted dashboard.
+PDF rendering, the Jalali calendar, and the `pdf-lib` dependency belong to the
+separate frontend project.
 
 
 Message `version` is a per-message concurrency token. Unrelated ticket activity

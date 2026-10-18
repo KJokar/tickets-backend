@@ -91,8 +91,6 @@ app.Use(async (context, next) =>
     context.Response.Headers.CacheControl = "no-store";
     await next();
 });
-app.UseDefaultFiles();
-app.UseStaticFiles();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

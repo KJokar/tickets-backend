@@ -17,21 +17,18 @@ public sealed class TicketApiTests(AuthApiFactory factory) : IClassFixture<AuthA
 {
     private const string TicketsUrl = "/Tickets/v1/Tickets";
 
-    [Fact]
-    public async Task DashboardPage_AndAssets_AreAvailableWithoutSigningIn()
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/index.html")]
+    [InlineData("/app.css")]
+    [InlineData("/app.js")]
+    [InlineData("/lib/signalr/signalr.min.js")]
+    [InlineData("/lib/report-export/report-pdf.js")]
+    public async Task Api_DoesNotHostFrontendPagesOrAssets(string path)
     {
         using var client = factory.CreateBrowser();
-        using var page = await client.GetAsync("/");
-        string html = await page.Content.ReadAsStringAsync();
-        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Contains("lang=\"fa\" dir=\"rtl\"", html);
-        Assert.DoesNotContain("ticket-department", html);
-        Assert.DoesNotContain("ticket-priority", html);
-        foreach (string path in new[] { "/app.css", "/app.js", "/lib/signalr/signalr.min.js" })
-        {
-            using var asset = await client.GetAsync(path);
-            Assert.Equal(HttpStatusCode.OK, asset.StatusCode);
-        }
+        using var response = await client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
